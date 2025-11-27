@@ -1,0 +1,70 @@
+[workspace]
+members = [
+    ".",
+    "crates/libs/daoyi-framework",
+    "crates/modules/*",
+    "migration",
+]
+resolver = "2"
+[workspace.package]
+version = "0.1.1"
+edition = "2024"
+rust-version = "1.89"
+readme = "./README.md"
+
+[workspace.dependencies]
+anyhow = "1.0.100"
+figment = { version = "0.10.19", features = ["env", "toml"] }
+jsonwebtoken = { version = "10.2.0", features = ["rust_crypto"] }
+rust-embed = "8.9.0"
+salvo = { version = "0.85.0", features = ["anyhow", "cookie", "cors", "jwt-auth", "oapi", "serve-static", "rustls", "logging", "test"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.120"
+thiserror = "2.0.17"
+time = "0.3.44"
+tokio = { version = "1.48.0", features = ["full"] }
+tracing = "0.1.41"
+validator = { version = "0.20.0", features = ["derive"] }
+ulid = "1.2.1"
+argon2 = "0.5.3"
+cookie = "0.18.1"
+dotenvy = "0.15.7"
+tracing-appender = "0.2.3"
+tracing-subscriber = { version = "0.3.20", features = ["std", "fmt", "env-filter", "tracing-log", "time", "local-time", "json"] }
+sea-orm = { version = "2.0.0-rc.19", features = ["runtime-tokio-native-tls", "sqlx-postgres", "macros"] }
+askama = "0.14.0"
+rand = "0.10.0-rc.5"
+redis = "1.0.0-rc.4"
+nacos-sdk = "0.5.3"
+
+[package]
+name = "daoyi_cloud_rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+figment.workspace = true
+jsonwebtoken.workspace = true
+rust-embed.workspace = true
+salvo.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+validator.workspace = true
+ulid.workspace = true
+argon2.workspace = true
+cookie.workspace = true
+dotenvy.workspace = true
+tracing-appender.workspace = true
+sea-orm.workspace = true
+askama.workspace = true
+rand.workspace = true
+redis.workspace = true
+nacos-sdk.workspace = true
+serde_json.workspace = true
+tracing-subscriber.workspace = true
