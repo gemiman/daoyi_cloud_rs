@@ -5,7 +5,7 @@ use salvo::prelude::*;
 use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
 
-use crate::dy_config::{self, JwtConfig};
+use crate::dy_config::{self, jwt_config::JwtConfig};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JwtClaims {

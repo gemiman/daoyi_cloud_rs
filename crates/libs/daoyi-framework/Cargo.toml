@@ -18,3 +18,5 @@ time.workspace = true
 thiserror.workspace = true
 validator.workspace = true
 tracing.workspace = true
+nacos-sdk.workspace = true
+config.workspace = true

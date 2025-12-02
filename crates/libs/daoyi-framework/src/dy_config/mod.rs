@@ -6,16 +6,20 @@ use serde::Deserialize;
 
 mod log_config;
 pub use log_config::LogConfig;
-mod db_config;
+pub mod db_config;
+pub mod jwt_config;
+pub mod nacos_config;
+pub mod tls_config;
+
+use crate::dy_config::jwt_config::JwtConfig;
+use crate::dy_config::tls_config::TlsConfig;
 pub use db_config::DbConfig;
 
 pub static CONFIG: OnceLock<ServerConfig> = OnceLock::new();
 
-pub fn init() {
+pub fn init(config_file: &str) {
     let raw_config = Figment::new()
-        .merge(Toml::file(
-            Env::var("APP_CONFIG").as_deref().unwrap_or("dy_config.toml"),
-        ))
+        .merge(Toml::string(config_file))
         .merge(Env::prefixed("APP_").global());
 
     let mut config = match raw_config.extract::<ServerConfig>() {
@@ -32,9 +36,7 @@ pub fn init() {
         eprintln!("DATABASE_URL is not set");
         std::process::exit(1);
     }
-    crate::dy_config::CONFIG
-        .set(config)
-        .expect("dy_config should be set");
+    CONFIG.set(config).expect("dy_config should be set");
 }
 pub fn get() -> &'static ServerConfig {
     CONFIG.get().expect("dy_config should be set")
@@ -44,22 +46,10 @@ pub fn get() -> &'static ServerConfig {
 pub struct ServerConfig {
     #[serde(default = "default_listen_addr")]
     pub listen_addr: String,
-
     pub db: DbConfig,
     pub log: LogConfig,
     pub jwt: JwtConfig,
     pub tls: Option<TlsConfig>,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-pub struct JwtConfig {
-    pub secret: String,
-    pub expiry: i64,
-}
-#[derive(Deserialize, Clone, Debug)]
-pub struct TlsConfig {
-    pub cert: String,
-    pub key: String,
 }
 
 #[allow(dead_code)]

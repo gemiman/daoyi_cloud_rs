@@ -1,6 +1,7 @@
 /target
 /migration/target
 config.toml
+nacos.yaml
 .env
 Cargo.lock
 .idea

@@ -9,7 +9,8 @@ mod routers;
 
 #[tokio::main]
 async fn main() {
-    dy_config::init();
+    let config_file = include_str!("resources/config.toml");
+    dy_config::init(config_file);
     let config = dy_config::get();
     db::init(&config.db).await;
 
@@ -85,7 +86,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_hello_world() {
-        dy_config::init();
+        let config_file = include_str!("resources/config.toml");
+        dy_config::init(config_file);
 
         let service = Service::new(crate::routers::root());
 
