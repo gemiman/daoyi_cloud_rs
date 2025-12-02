@@ -4,7 +4,6 @@ use salvo::conn::rustls::{Keycert, RustlsConfig};
 use salvo::prelude::*;
 use salvo::server::ServerHandle;
 use tokio::signal;
-use tracing::info;
 
 mod routers;
 
@@ -72,8 +71,8 @@ async fn shutdown_signal(handle: ServerHandle) {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => info!("ctrl_c signal received"),
-        _ = terminate => info!("terminate signal received"),
+        _ = ctrl_c => tracing::info!("ctrl_c signal received"),
+        _ = terminate => tracing::info!("terminate signal received"),
     }
     handle.stop_graceful(std::time::Duration::from_secs(60));
 }
