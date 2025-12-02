@@ -1,11 +1,10 @@
-pub mod config;
+pub mod dy_config;
 pub mod db;
 pub mod hoops;
 pub mod utils;
 
 pub mod models;
 
-pub use config as dy_config;
 use salvo::oapi::ToSchema;
 use salvo::prelude::Json;
 use serde::Serialize;

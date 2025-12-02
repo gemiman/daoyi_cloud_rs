@@ -14,14 +14,14 @@ pub static CONFIG: OnceLock<ServerConfig> = OnceLock::new();
 pub fn init() {
     let raw_config = Figment::new()
         .merge(Toml::file(
-            Env::var("APP_CONFIG").as_deref().unwrap_or("config.toml"),
+            Env::var("APP_CONFIG").as_deref().unwrap_or("dy_config.toml"),
         ))
         .merge(Env::prefixed("APP_").global());
 
     let mut config = match raw_config.extract::<ServerConfig>() {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("It looks like your config is invalid. The following error occurred: {e}");
+            eprintln!("It looks like your dy_config is invalid. The following error occurred: {e}");
             std::process::exit(1);
         }
     };
@@ -32,12 +32,12 @@ pub fn init() {
         eprintln!("DATABASE_URL is not set");
         std::process::exit(1);
     }
-    crate::config::CONFIG
+    crate::dy_config::CONFIG
         .set(config)
-        .expect("config should be set");
+        .expect("dy_config should be set");
 }
 pub fn get() -> &'static ServerConfig {
-    CONFIG.get().expect("config should be set")
+    CONFIG.get().expect("dy_config should be set")
 }
 
 #[derive(Deserialize, Clone, Debug)]

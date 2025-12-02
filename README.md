@@ -306,7 +306,7 @@ cargo run -- status
 
 1. **复制配置文件**
    ```bash
-   cp config-example.toml config.toml
+   cp dy_config-example.toml dy_config.toml
    ```
 
 2. **修改 `config.toml`**

@@ -4,7 +4,7 @@ use std::time::Duration;
 use sea_orm::entity::prelude::DatabaseConnection;
 use sea_orm::{ConnectOptions, Database};
 
-use crate::config::DbConfig;
+use crate::dy_config::DbConfig;
 
 pub static SEAORM_POOL: OnceLock<DatabaseConnection> = OnceLock::new();
 
