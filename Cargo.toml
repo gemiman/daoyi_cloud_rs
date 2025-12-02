@@ -36,6 +36,7 @@ askama = "0.14.0"
 rand = "0.10.0-rc.5"
 redis = "1.0.0-rc.4"
 nacos-sdk = "0.5.3"
+config = { version = "0.15.19", features = ["yaml"] }
 daoyi-framework = { path = "crates/libs/daoyi-framework", version = "0.1.1" }
 daoyi-entity-demo = { path = "crates/libs/daoyi-entity-demo", version = "0.1.1" }
 
@@ -48,27 +49,15 @@ readme.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-figment.workspace = true
-jsonwebtoken.workspace = true
 rust-embed.workspace = true
 salvo.workspace = true
 serde.workspace = true
-thiserror.workspace = true
-time.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 validator.workspace = true
 ulid.workspace = true
-argon2.workspace = true
 cookie.workspace = true
-dotenvy.workspace = true
-tracing-appender.workspace = true
 sea-orm.workspace = true
 askama.workspace = true
-rand.workspace = true
-redis.workspace = true
-nacos-sdk.workspace = true
-serde_json.workspace = true
-tracing-subscriber.workspace = true
 daoyi-framework.workspace = true
 daoyi-entity-demo.workspace = true
