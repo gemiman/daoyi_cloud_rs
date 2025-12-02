@@ -4,3 +4,17 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+rand.workspace = true
+argon2.workspace = true
+sea-orm.workspace = true
+figment.workspace = true
+serde.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+salvo.workspace = true
+anyhow.workspace = true
+jsonwebtoken.workspace = true
+time.workspace = true
+thiserror.workspace = true
+validator.workspace = true
+tracing.workspace = true

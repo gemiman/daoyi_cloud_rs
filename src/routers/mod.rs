@@ -1,12 +1,11 @@
 use rust_embed::RustEmbed;
 use salvo::prelude::*;
 use salvo::serve_static::{EmbeddedFileExt, static_embed};
+use daoyi_framework::{dy_config, hoops};
 
 mod auth;
 mod demo;
 mod user;
-
-use crate::{config, hoops};
 
 #[derive(RustEmbed)]
 #[folder = "assets"]
@@ -26,7 +25,7 @@ pub fn root() -> Router {
                 .push(Router::with_path("login").post(auth::post_login))
                 .push(
                     Router::with_path("users")
-                        .hoop(hoops::auth_hoop(&config::get().jwt))
+                        .hoop(hoops::auth_hoop(&dy_config::get().jwt))
                         .get(user::list_users)
                         .post(user::create_user)
                         .push(

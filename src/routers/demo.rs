@@ -1,7 +1,6 @@
 use askama::Template;
+use daoyi_framework::AppResult;
 use salvo::prelude::*;
-
-use crate::AppResult;
 
 #[handler]
 pub async fn hello(req: &mut Request) -> AppResult<Text<String>> {

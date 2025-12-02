@@ -5,10 +5,10 @@ use salvo::prelude::*;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::users::Model;
-use crate::entities::{prelude::Users, users};
 use crate::hoops::jwt;
-use crate::{AppResult, JsonResult, db, json_ok, utils};
+use daoyi_entity_demo::demo::entities::users::Model;
+use daoyi_entity_demo::demo::entities::{prelude::Users, users};
+use daoyi_framework::{AppResult, JsonResult, db, json_ok, utils};
 
 #[handler]
 pub async fn login_page(res: &mut Response) -> AppResult<()> {

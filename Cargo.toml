@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    ".",
+    ".", "crates/libs/daoyi-entity-demo",
     "crates/libs/daoyi-framework",
     "crates/modules/*",
     "migration",
@@ -36,6 +36,8 @@ askama = "0.14.0"
 rand = "0.10.0-rc.5"
 redis = "1.0.0-rc.4"
 nacos-sdk = "0.5.3"
+daoyi-framework = { path = "crates/libs/daoyi-framework", version = "0.1.1" }
+daoyi-entity-demo = { path = "crates/libs/daoyi-entity-demo", version = "0.1.1" }
 
 [package]
 name = "daoyi_cloud_rs"
@@ -68,3 +70,5 @@ redis.workspace = true
 nacos-sdk.workspace = true
 serde_json.workspace = true
 tracing-subscriber.workspace = true
+daoyi-framework.workspace = true
+daoyi-entity-demo.workspace = true

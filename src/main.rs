@@ -1,40 +1,18 @@
+use daoyi_framework::{db, dy_config, hoops};
 use salvo::catcher::Catcher;
 use salvo::conn::rustls::{Keycert, RustlsConfig};
 use salvo::prelude::*;
 use salvo::server::ServerHandle;
-use serde::Serialize;
 use tokio::signal;
 use tracing::info;
 
-mod config;
-mod db;
-mod entities;
-mod hoops;
-mod models;
 mod routers;
-mod utils;
-
-mod error;
-pub use error::AppError;
-
-pub type AppResult<T> = Result<T, AppError>;
-pub type JsonResult<T> = Result<Json<T>, AppError>;
-pub type EmptyResult = Result<Json<Empty>, AppError>;
-
-pub fn json_ok<T>(data: T) -> JsonResult<T> {
-    Ok(Json(data))
-}
-#[derive(Serialize, ToSchema, Clone, Copy, Debug)]
-pub struct Empty {}
-pub fn empty_ok() -> JsonResult<Empty> {
-    Ok(Json(Empty {}))
-}
 
 #[tokio::main]
 async fn main() {
-    crate::config::init();
-    let config = crate::config::get();
-    crate::db::init(&config.db).await;
+    dy_config::init();
+    let config = dy_config::get();
+    db::init(&config.db).await;
 
     let _guard = config.log.guard();
     tracing::info!("log level: {}", &config.log.filter_level);
@@ -102,20 +80,19 @@ async fn shutdown_signal(handle: ServerHandle) {
 
 #[cfg(test)]
 mod tests {
+    use daoyi_framework::dy_config;
     use salvo::prelude::*;
     use salvo::test::{ResponseExt, TestClient};
 
-    use crate::config;
-
     #[tokio::test]
     async fn test_hello_world() {
-        config::init();
+        dy_config::init();
 
         let service = Service::new(crate::routers::root());
 
         let content = TestClient::get(format!(
             "http://{}",
-            config::get().listen_addr.replace("0.0.0.0", "127.0.0.1")
+            dy_config::get().listen_addr.replace("0.0.0.0", "127.0.0.1")
         ))
         .send(&service)
         .await

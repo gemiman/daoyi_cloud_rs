@@ -1,0 +1,10 @@
+[package]
+name = "daoyi-entity-demo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+
+[dependencies]
+serde.workspace = true
+sea-orm.workspace = true
