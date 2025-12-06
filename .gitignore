@@ -5,3 +5,4 @@ nacos.yaml
 .env
 Cargo.lock
 .idea
+/logs/
