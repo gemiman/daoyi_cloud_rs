@@ -20,3 +20,4 @@ validator.workspace = true
 tracing.workspace = true
 nacos-sdk.workspace = true
 config.workspace = true
+serde_json.workspace = true

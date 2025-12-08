@@ -9,15 +9,20 @@ pub use log_config::LogConfig;
 pub mod db_config;
 pub mod jwt_config;
 pub mod nacos_config;
+pub mod spring;
 pub mod tls_config;
 
 use crate::dy_config::jwt_config::JwtConfig;
+use crate::dy_config::spring::DyConfiguration;
 use crate::dy_config::tls_config::TlsConfig;
 pub use db_config::DbConfig;
 
 pub static CONFIG: OnceLock<ServerConfig> = OnceLock::new();
 
 pub fn init(config_file: &str) {
+    let configuration = DyConfiguration::load(Option::<&str>::None, None, Option::<&str>::None)
+        .expect("Failed to load config");
+    println!("{:#?}", configuration);
     let raw_config = Figment::new()
         .merge(Toml::string(config_file))
         .merge(Env::prefixed("APP_").global());

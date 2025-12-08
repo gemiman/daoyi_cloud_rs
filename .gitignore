@@ -6,3 +6,4 @@ nacos.yaml
 Cargo.lock
 .idea
 /logs/
+*-rs.yaml
