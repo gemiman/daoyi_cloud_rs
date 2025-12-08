@@ -19,8 +19,9 @@ pub use db_config::DbConfig;
 
 pub static CONFIG: OnceLock<ServerConfig> = OnceLock::new();
 
-pub fn init(config_file: &str) {
+pub async fn init(config_file: &str) {
     let configuration = DyConfiguration::load(Option::<&str>::None, None, Option::<&str>::None)
+        .await
         .expect("Failed to load config");
     println!("{:#?}", configuration);
     let raw_config = Figment::new()

@@ -1,14 +1,14 @@
 use argon2::{
-    Argon2, PasswordHash,
-    password_hash::{SaltString, rand_core::OsRng},
+    password_hash::{rand_core::OsRng, SaltString}, Argon2,
+    PasswordHash,
 };
-use config::{Config, ConfigError, File};
+use config::{Config, ConfigError, File, FileFormat};
+use nacos_sdk::api::{config::ConfigServiceBuilder, error as nacos_error, props::ClientProps};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::iter;
 use std::path::{Path, PathBuf};
-
 #[allow(dead_code)]
 #[inline]
 pub fn random_string(limit: usize) -> String {
@@ -42,7 +42,7 @@ pub fn hash_password(password: &str) -> anyhow::Result<String> {
 /// `profile` can override the active profile. If `profile` is `None`, the function will look for
 /// `DAOYI_PROFILE` or `SPRING_PROFILES_ACTIVE` environment variables. The base YAML file is
 /// required; `application-{profile}.yaml` and `application-local.yaml` are loaded when present.
-pub fn load_yaml_config<T>(
+pub async fn load_yaml_config<T>(
     resources_dir: Option<impl AsRef<Path>>,
     base_name: Option<&str>,
     profile: Option<impl AsRef<str>>,
@@ -95,7 +95,183 @@ where
     let mut value = built.try_deserialize::<Value>()?;
     let original = value.clone();
     resolve_placeholders(&mut value, &original);
+    merge_imports(&mut value, resources_dir.as_path()).await?;
+    let resolved_root = value.clone();
+    resolve_placeholders(&mut value, &resolved_root);
     serde_json::from_value(value).map_err(|err| ConfigError::Message(err.to_string()))
+}
+
+async fn merge_imports(root: &mut Value, resources_dir: &Path) -> Result<(), ConfigError> {
+    let imports: Vec<String> = root
+        .get("spring")
+        .and_then(|s| s.get("config"))
+        .and_then(|c| c.get("import"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    for import_str in imports {
+        let optional = import_str.starts_with("optional:");
+        let trimmed = import_str.trim_start_matches("optional:");
+
+        if let Some(classpath) = trimmed.strip_prefix("classpath:") {
+            let path = resources_dir.join(classpath);
+            match load_value_from_file(&path) {
+                Ok(mut imported) => {
+                    resolve_placeholders(&mut imported, root);
+                    merge_values(root, &imported);
+                }
+                Err(e) if optional && matches!(e, ConfigError::NotFound(_)) => {
+                    eprintln!("optional classpath config not found: {}", classpath);
+                }
+                Err(e) => return Err(e),
+            }
+        } else if let Some(data_id) = trimmed.strip_prefix("nacos:") {
+            match load_value_from_nacos(root, data_id).await {
+                Ok(Some(mut imported)) => {
+                    resolve_placeholders(&mut imported, root);
+                    merge_values(root, &imported);
+                }
+                Ok(None) if optional => {
+                    eprintln!("optional nacos config not found, skipping: {}", data_id);
+                }
+                Ok(None) => {
+                    return Err(ConfigError::NotFound(format!(
+                        "nacos config {} not found",
+                        data_id
+                    )));
+                }
+                Err(err) if optional => {
+                    eprintln!(
+                        "error = {err:#?}, optional nacos config failed to load: {}",
+                        data_id
+                    );
+                }
+                Err(err) => return Err(err),
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn load_value_from_nacos(root: &Value, data_id: &str) -> Result<Option<Value>, ConfigError> {
+    let Some(nacos_conf) = root
+        .get("spring")
+        .and_then(|s| s.get("cloud"))
+        .and_then(|c| c.get("nacos"))
+    else {
+        return Err(ConfigError::Message(
+            "spring.cloud.nacos is required for nacos imports".to_string(),
+        ));
+    };
+
+    let server_addr = nacos_conf
+        .get("server-addr")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| ConfigError::Message("spring.cloud.nacos.server-addr is missing".into()))?;
+
+    let config_namespace = nacos_conf
+        .get("config")
+        .and_then(|v| v.get("namespace"))
+        .and_then(|v| v.as_str())
+        .or_else(|| {
+            nacos_conf
+                .get("discovery")
+                .and_then(|v| v.get("namespace"))
+                .and_then(|v| v.as_str())
+        })
+        .unwrap_or("")
+        .to_string();
+
+    let config_group = nacos_conf
+        .get("config")
+        .and_then(|v| v.get("group"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("DEFAULT_GROUP")
+        .to_string();
+
+    let username = nacos_conf
+        .get("username")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    let password = nacos_conf
+        .get("password")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    let app_name = root
+        .get("spring")
+        .and_then(|s| s.get("application"))
+        .and_then(|a| a.get("name"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("daoyi-cloud-rs")
+        .to_string();
+
+    let mut client_props = ClientProps::new()
+        .server_addr(server_addr)
+        .namespace(config_namespace)
+        .app_name(app_name)
+        .env_first(false);
+
+    if let Some(u) = username {
+        client_props = client_props.auth_username(u);
+    }
+    if let Some(p) = password {
+        client_props = client_props.auth_password(p);
+    }
+
+    let config_service = ConfigServiceBuilder::new(client_props)
+        .enable_auth_plugin_http()
+        .build()
+        .map_err(|e| ConfigError::Message(e.to_string()))?;
+
+    match config_service
+        .get_config(data_id.to_string(), config_group.clone())
+        .await
+    {
+        Ok(resp) => load_value_from_str(resp.content()).map(Some),
+        Err(nacos_error::Error::ConfigNotFound(_)) => Ok(None),
+        Err(err) => Err(ConfigError::Message(err.to_string())),
+    }
+}
+
+fn load_value_from_str(content: &str) -> Result<Value, ConfigError> {
+    println!("load_value_from_str: {}", content);
+    let cfg = Config::builder()
+        .add_source(File::from_str(content, FileFormat::Yaml))
+        .build()?;
+    cfg.try_deserialize::<Value>()
+}
+
+fn load_value_from_file(path: &Path) -> Result<Value, ConfigError> {
+    let config = Config::builder().add_source(File::from(path)).build()?;
+    config.try_deserialize::<Value>()
+}
+
+fn merge_values(base: &mut Value, overlay: &Value) {
+    match (base, overlay) {
+        (Value::Object(base_map), Value::Object(overlay_map)) => {
+            for (k, v) in overlay_map {
+                match base_map.get_mut(k) {
+                    Some(base_val) => merge_values(base_val, v),
+                    None => {
+                        base_map.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+        (base_slot, overlay_val) => {
+            *base_slot = overlay_val.clone();
+        }
+    }
 }
 
 fn resolve_placeholders(value: &mut Value, root: &Value) {
