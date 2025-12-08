@@ -2,13 +2,16 @@ use argon2::{
     password_hash::{rand_core::OsRng, SaltString}, Argon2,
     PasswordHash,
 };
-use config::{Config, ConfigError, File, FileFormat};
+use config::{Config, ConfigError, File};
 use nacos_sdk::api::{config::ConfigServiceBuilder, error as nacos_error, props::ClientProps};
 use rand::Rng;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use serde_json::Value;
+use serde_yaml::Deserializer as YamlDeserializer;
 use std::iter;
 use std::path::{Path, PathBuf};
+
 #[allow(dead_code)]
 #[inline]
 pub fn random_string(limit: usize) -> String {
@@ -244,11 +247,26 @@ async fn load_value_from_nacos(root: &Value, data_id: &str) -> Result<Option<Val
 }
 
 fn load_value_from_str(content: &str) -> Result<Value, ConfigError> {
-    println!("load_value_from_str: {}", content);
-    let cfg = Config::builder()
-        .add_source(File::from_str(content, FileFormat::Yaml))
-        .build()?;
-    cfg.try_deserialize::<Value>()
+    let mut acc = Value::Null;
+    for doc in YamlDeserializer::from_str(content) {
+        let yaml_val: serde_yaml::Value =
+            serde_yaml::Value::deserialize(doc).map_err(|e| ConfigError::Message(e.to_string()))?;
+        let json_val =
+            serde_json::to_value(yaml_val).map_err(|e| ConfigError::Message(e.to_string()))?;
+        if acc.is_null() {
+            acc = json_val;
+        } else {
+            merge_values(&mut acc, &json_val);
+        }
+    }
+
+    if acc.is_null() {
+        Err(ConfigError::Message(
+            "empty yaml content from nacos".to_string(),
+        ))
+    } else {
+        Ok(acc)
+    }
 }
 
 fn load_value_from_file(path: &Path) -> Result<Value, ConfigError> {
@@ -257,6 +275,10 @@ fn load_value_from_file(path: &Path) -> Result<Value, ConfigError> {
 }
 
 fn merge_values(base: &mut Value, overlay: &Value) {
+    if overlay.is_null() {
+        // Skip nulls to avoid wiping existing values
+        return;
+    }
     match (base, overlay) {
         (Value::Object(base_map), Value::Object(overlay_map)) => {
             for (k, v) in overlay_map {
