@@ -26,7 +26,7 @@ pub fn auth_hoop(config: &JwtConfig) -> JwtAuth<JwtClaims, ConstDecoder> {
 }
 
 pub fn get_token(uid: impl Into<String>) -> Result<(String, i64)> {
-    let exp = OffsetDateTime::now_utc() + Duration::seconds(dy_config::get().jwt.expiry);
+    let exp = OffsetDateTime::now_utc() + Duration::seconds(dy_config::get().get_rs().get_jwt().expiry);
     let claim = JwtClaims {
         uid: uid.into(),
         exp: exp.unix_timestamp(),
@@ -34,7 +34,7 @@ pub fn get_token(uid: impl Into<String>) -> Result<(String, i64)> {
     let token: String = jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),
         &claim,
-        &EncodingKey::from_secret(dy_config::get().jwt.secret.as_bytes()),
+        &EncodingKey::from_secret(dy_config::get().get_rs().get_jwt().secret.as_bytes()),
     )?;
     Ok((token, exp.unix_timestamp()))
 }
@@ -44,7 +44,7 @@ pub fn decode_token(token: &str) -> bool {
     let validation = Validation::new(Algorithm::HS256);
     decode::<JwtClaims>(
         token,
-        &DecodingKey::from_secret(dy_config::get().jwt.secret.as_bytes()),
+        &DecodingKey::from_secret(dy_config::get().get_rs().get_jwt().secret.as_bytes()),
         &validation,
     )
     .is_ok()

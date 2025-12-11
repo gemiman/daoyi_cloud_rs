@@ -25,7 +25,7 @@ pub fn root() -> Router {
                 .push(Router::with_path("login").post(auth::post_login))
                 .push(
                     Router::with_path("users")
-                        .hoop(hoops::auth_hoop(&dy_config::get().jwt))
+                        .hoop(hoops::auth_hoop(dy_config::get().get_rs().get_jwt()))
                         .get(user::list_users)
                         .post(user::create_user)
                         .push(

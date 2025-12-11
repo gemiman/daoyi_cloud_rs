@@ -1,12 +1,10 @@
-use argon2::{
-    password_hash::{rand_core::OsRng, SaltString}, Argon2,
-    PasswordHash,
-};
+use argon2::password_hash::phc::Salt;
+use argon2::{Argon2, PasswordHash};
 use config::{Config, ConfigError, File};
 use nacos_sdk::api::{config::ConfigServiceBuilder, error as nacos_error, props::ClientProps};
 use rand::Rng;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 use serde_yaml::Deserializer as YamlDeserializer;
 use std::iter;
@@ -33,7 +31,7 @@ pub fn verify_password(password: &str, password_hash: &str) -> anyhow::Result<()
 }
 
 pub fn hash_password(password: &str) -> anyhow::Result<String> {
-    let salt = SaltString::generate(&mut OsRng);
+    let salt = Salt::generate();
     Ok(PasswordHash::generate(Argon2::default(), password, &salt)
         .map_err(|e| anyhow::anyhow!("failed to generate password hash: {}", e))?
         .to_string())
@@ -72,25 +70,8 @@ where
     }
 
     if let Some(profile_name) = &active_profile {
-        builder = builder.add_source(
-            File::from(resources_dir.join(format!("application-{profile_name}.yaml")))
-                .required(false),
-        );
-        if !base_name.eq_ignore_ascii_case("application") {
-            builder = builder.add_source(
-                File::from(resources_dir.join(format!("{base_name}-{profile_name}.yaml")))
-                    .required(false),
-            );
-        }
         builder = builder.set_override("spring.profiles.active", profile_name.clone())?;
     } else {
-        builder = builder
-            .add_source(File::from(resources_dir.join("application-local.yaml")).required(false));
-        if !base_name.eq_ignore_ascii_case("application") {
-            builder = builder.add_source(
-                File::from(resources_dir.join(format!("{base_name}-local.yaml"))).required(false),
-            );
-        }
         builder = builder.set_default("spring.profiles.active", "local")?;
     }
 

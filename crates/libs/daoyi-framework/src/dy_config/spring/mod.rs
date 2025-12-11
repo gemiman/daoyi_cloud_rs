@@ -1,3 +1,4 @@
+use crate::dy_config::rs_server_config::RsServerConfig;
 use crate::utils::load_yaml_config;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -10,6 +11,7 @@ pub struct DyConfiguration {
     pub server: Option<ServerConfig>,
     pub knife4j: Option<KfConfig>,
     pub yudao: Option<YuDaoConfig>,
+    rs: Option<RsServerConfig>,
 }
 
 impl DyConfiguration {
@@ -21,6 +23,16 @@ impl DyConfiguration {
         load_yaml_config(resources_dir, base_name, profile)
             .await
             .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    pub fn get_rs(&self) -> &RsServerConfig {
+        self.rs.as_ref().expect("should be set")
+    }
+
+    pub fn get_listen_addr(&self) -> String {
+        let listen_addr = "0.0.0.0";
+        let listen_port = self.server.as_ref().and_then(|s| s.port).unwrap_or(80);
+        format!("{}:{}", listen_addr, listen_port)
     }
 }
 
@@ -163,7 +175,7 @@ pub struct LoggingFileConfig {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct ServerConfig {
     pub port: Option<u16>,
 }
