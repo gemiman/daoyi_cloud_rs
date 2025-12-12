@@ -1,10 +1,11 @@
 use argon2::password_hash::phc::Salt;
-use argon2::{Argon2, PasswordHash};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use config::{Config, ConfigError, File};
 use nacos_sdk::api::{config::ConfigServiceBuilder, error as nacos_error, props::ClientProps};
+use rand::distr::Alphanumeric;
 use rand::Rng;
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use serde_json::Value;
 use serde_yaml::Deserializer as YamlDeserializer;
 use std::iter;
@@ -14,16 +15,16 @@ use std::path::{Path, PathBuf};
 #[inline]
 pub fn random_string(limit: usize) -> String {
     iter::repeat(())
-        .map(|_| rand::rng().sample(rand::distr::Alphanumeric))
+        .map(|_| rand::rng().sample(Alphanumeric))
         .map(char::from)
         .take(limit)
         .collect()
 }
 
 pub fn verify_password(password: &str, password_hash: &str) -> anyhow::Result<()> {
-    let hash = PasswordHash::new(&password_hash)
+    let parsed_hash = PasswordHash::new(&password_hash)
         .map_err(|e| anyhow::anyhow!("invalid password hash: {}", e))?;
-    let result = hash.verify_password(&[&Argon2::default()], password);
+    let result = Argon2::default().verify_password(password.as_bytes(), &parsed_hash);
     match result {
         Ok(_) => Ok(()),
         Err(_) => Err(anyhow::anyhow!("invalid password")),
@@ -31,8 +32,12 @@ pub fn verify_password(password: &str, password_hash: &str) -> anyhow::Result<()
 }
 
 pub fn hash_password(password: &str) -> anyhow::Result<String> {
-    let salt = Salt::generate();
-    Ok(PasswordHash::generate(Argon2::default(), password, &salt)
+    let salt = Salt::generate(); // Note: needs the `getrandom` feature of `argon2` enabled
+    // Argon2 with default params (Argon2id v19)
+    let argon2 = Argon2::default();
+    // Hash password to PHC string ($argon2id$v=19$...)
+    Ok(argon2
+        .hash_password(password.as_bytes(), &salt)
         .map_err(|e| anyhow::anyhow!("failed to generate password hash: {}", e))?
         .to_string())
 }
