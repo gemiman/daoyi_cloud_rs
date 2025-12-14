@@ -62,7 +62,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_hello_world() {
-        let config_file = include_str!("resources/config.toml");
         dy_config::init().await;
 
         let service = Service::new(crate::routers::root());
