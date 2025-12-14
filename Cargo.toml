@@ -3,13 +3,14 @@ members = [
     ".", "crates/libs/daoyi-entity-demo",
     "crates/libs/daoyi-framework",
     "crates/modules/*",
+    "crates/examples/*",
     "migration",
 ]
 resolver = "2"
 [workspace.package]
 version = "0.1.1"
 edition = "2024"
-rust-version = "1.89"
+rust-version = "1.92.0"
 readme = "./README.md"
 
 [workspace.dependencies]
