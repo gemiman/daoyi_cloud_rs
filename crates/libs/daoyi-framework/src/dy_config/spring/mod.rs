@@ -1,8 +1,8 @@
 use crate::dy_config::rs_server_config::RsServerConfig;
-use crate::utils::load_yaml_config;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
+use crate::dy_config::config_utils::load_yaml_config;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DyConfiguration {

@@ -7,6 +7,7 @@ pub mod jwt_config;
 pub mod rs_server_config;
 pub mod spring;
 pub mod tls_config;
+mod config_utils;
 
 use crate::dy_config::spring::DyConfiguration;
 pub use db_config::DbConfig;
