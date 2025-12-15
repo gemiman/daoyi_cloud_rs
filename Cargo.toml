@@ -4,7 +4,7 @@ members = [
     "crates/libs/daoyi-framework",
     "crates/modules/*",
     "crates/examples/*",
-    "migration",
+    "migration", "crates/libs/daoyi-entity-system", "crates/libs/daoyi-entity-infra",
 ]
 resolver = "2"
 [workspace.package]
