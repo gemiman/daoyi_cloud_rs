@@ -1,17 +1,16 @@
-use crate::hoops::jwt;
+use rbatis::impl_select_page;
+use rbatis::plugin::page::PageRequest;
+use rbs::value;
 use askama::Template;
 use salvo::oapi::extract::*;
 use salvo::prelude::*;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, Set,
-};
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use validator::Validate;
 
-use daoyi_entity_demo::demo::entities::{prelude::Users, users};
-use daoyi_framework::{db, empty_ok, json_ok, utils, AppResult, EmptyResult, JsonResult};
-use daoyi_framework::models::SafeUser;
+use crate::hoops::jwt;
+use crate::models::{SafeUser, User};
+use crate::{db, empty_ok, json_ok, utils, AppResult, EmptyResult, JsonResult};
 
 #[derive(Template)]
 #[template(path = "user_list_page.html")]
@@ -50,20 +49,25 @@ pub struct CreateInData {
     #[validate(length(min = 6, message = "password length must be greater than 5"))]
     pub password: String,
 }
+
 #[endpoint(tags("users"))]
 pub async fn create_user(idata: JsonBody<CreateInData>) -> JsonResult<SafeUser> {
     let CreateInData { username, password } = idata.into_inner();
-    let id = Ulid::new().to_string();
-    let password = utils::hash_password(&password)?;
-    let conn = db::pool();
-    let model = users::ActiveModel {
-        id: Set(id.clone()),
-        username: Set(username.clone()),
-        password: Set(password.clone()),
-    };
-    Users::insert(model).exec(conn).await?;
+    let rb = db::engine();
 
-    json_ok(SafeUser { id, username })
+    let id = Ulid::new().to_string();
+    let user = User {
+        id: id.clone(),
+        username: username.clone(),
+        password: utils::hash_password(&password)?,
+    };
+
+    User::insert(rb, &user).await.map_err(anyhow::Error::from)?;
+
+    json_ok(SafeUser {
+        id: id,
+        username: username,
+    })
 }
 
 #[derive(Deserialize, Debug, Validate, ToSchema)]
@@ -79,30 +83,41 @@ pub async fn update_user(
     idata: JsonBody<UpdateInData>,
 ) -> JsonResult<SafeUser> {
     let user_id = user_id.into_inner();
-    let UpdateInData { username, password } = idata.into_inner();
-    let conn = db::pool();
+    let idata = idata.into_inner();
+    let rb = db::engine();
 
-    let Some(user) = Users::find_by_id(user_id).one(conn).await? else {
-        return Err(anyhow::anyhow!("User does not exist.").into());
+    let user = User {
+        id: user_id.clone(),
+        username: idata.username.clone(),
+        password: utils::hash_password(&idata.password)?,
     };
-    let mut user: users::ActiveModel = user.into();
-    user.username = Set(username.to_owned());
-    user.password = Set(utils::hash_password(&password)?);
 
-    let user: users::Model = user.update(conn).await?;
+    User::update_by_map(rb, &user, value!("id": &user_id))
+        .await
+        .map_err(anyhow::Error::from)?;
+
     json_ok(SafeUser {
-        id: user.id,
-        username: user.username,
+        id: user_id,
+        username: idata.username,
     })
 }
 
 #[endpoint(tags("users"))]
 pub async fn delete_user(user_id: PathParam<String>) -> EmptyResult {
-    let user_id = user_id.into_inner();
-    let conn = db::pool();
-    Users::delete_by_id(user_id).exec(conn).await?;
+    let rb = db::engine();
+    User::delete_by_map(rb, value!("id": &user_id.into_inner()))
+        .await
+        .map_err(anyhow::Error::from)?;
     empty_ok()
 }
+
+impl_select_page!(User{select_page() =>"
+     if !sql.contains('count(1)'):
+       `order by id desc`"},"users");
+
+impl_select_page!(User{select_page_by_username(username:&str) =>"
+     if username != null && username != '':
+       `where username like #{username}`"},"users");
 
 #[derive(Debug, Deserialize, Validate, Extractible, ToSchema)]
 #[salvo(extract(default_source(from = "query")))]
@@ -124,42 +139,41 @@ fn default_page_size() -> u64 {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct UserListResponse {
     pub data: Vec<SafeUser>,
-    pub total: u64,
+    pub total: i64,
     pub current_page: u64,
     pub page_size: u64,
 }
 
-#[endpoint(tags("users"))]
+#[endpoint(tags("users"), status_codes(200, 400))]
 pub async fn list_users(query: &mut Request) -> JsonResult<UserListResponse> {
+    let rb = db::engine();
     let query: UserListQuery = query.extract().await?;
-    let conn = db::pool();
 
-    let mut select = Users::find();
+    let page_req = PageRequest::new(query.current_page, query.page_size);
 
-    // Apply username filter if provided
-    if let Some(username) = query.username.as_ref() {
-        select = select.filter(users::Column::Username.contains(username));
-    }
+    let page = if let Some(username) = query.username {
+        let pattern = format!("%{}%", username);
+        User::select_page_by_username(rb, &page_req, &pattern)
+            .await
+            .map_err(anyhow::Error::from)?
+    } else {
+        User::select_page(rb, &page_req)
+            .await
+            .map_err(anyhow::Error::from)?
+    };
 
-    // Get total count
-    let total = select.clone().count(conn).await?;
-
-    // Apply pagination
-    let users = select
-        .offset(((query.current_page - 1) * query.page_size) as u64)
-        .limit(query.page_size)
-        .all(conn)
-        .await?
+    let safe_users: Vec<SafeUser> = page
+        .records
         .into_iter()
         .map(|user| SafeUser {
             id: user.id,
             username: user.username,
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     json_ok(UserListResponse {
-        data: users,
-        total,
+        data: safe_users,
+        total: page.total as i64,
         current_page: query.current_page,
         page_size: query.page_size,
     })

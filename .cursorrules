@@ -67,6 +67,76 @@ project/
     ├── js/
     └── css/
 
+Rbatis ORM Guidelines:
+
+1. Model Definition:
+   ```rust
+   #[crud_table]
+   #[derive(Clone, Debug, Serialize, Deserialize)]
+   pub struct User {
+       pub id: Option<String>,
+       pub username: Option<String>,
+       pub password: Option<String>,
+   }
+   crud!(User {});
+   ```
+
+2. Database Operations:
+   • Basic CRUD:
+   ```rust
+   // Insert
+   rb.save(&user, &[]).await?;
+   
+   // Select
+   rb.fetch_by_column("id", &id).await?;
+   
+   // Update
+   rb.update_by_column("id", &user).await?;
+   
+   // Delete
+   rb.remove_by_column::<User, _>("id", &id).await?;
+   ```
+
+3. Query Builder:
+   ```rust
+   let wrapper = rb.new_wrapper()
+       .eq("id", id)
+       .and()
+       .like("username", &pattern)
+       .order_by(true, &["id"]);
+   ```
+
+4. Pagination:
+   ```rust
+   #[derive(Debug, Deserialize)]
+   pub struct PageParams {
+       pub current_page: u64,
+       pub page_size: u64,
+   }
+   
+   let page = User::select_page(rb, &page_req).await?;
+   ```
+
+5. Custom Macros:
+   • #[py_sql] for Python-like SQL
+   • #[html_sql] for XML-style queries
+   • #[sql] for direct SQL statements
+
+6. Transaction Support:
+   ```rust
+   rb.acquire_begin().await?.defer_async(|tx| async move {
+       // Transaction operations
+       tx.commit().await
+   }).await?;
+   ```
+
+7. Best Practices:
+   • Use connection pools
+   • Implement proper error handling
+   • Use QueryWrapper for complex queries
+   • Leverage macro-based SQL generation
+   • Use Option<T> for nullable fields
+
 JSON Response Format:
 
 #[derive(Serialize)]
@@ -88,174 +158,6 @@ Error Handling:
 	•	AppError handles various error types: Public, Internal, HttpStatus, SqlxError, Validation.
 	•	Log errors with tracing and return appropriate HTTP status codes.
 
-Database Operations:
-	•	Use SQLx for async DB operations (e.g., query!, query_as!).
-	•	Paginate with LIMIT and OFFSET.
-
-Password Handling:
-	•	Use bcrypt/Argon2 for password hashing.
-
 Input Validation:
 	•	Use validator for validating and sanitizing inputs.
-1. Entity Definition:
-```rust
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "users")]
-pub struct Model {
-  #[sea_orm(primary_key)]
-  pub id: i32,
-  pub name: String,
-  pub created_at: DateTime,
-}
-```
 
-2. Common Operations:
-• Select:
-```rust
-// Find by id
-let user: Option<user::Model> = User::find_by_id(1).one(db).await?;
-
-// Find all
-let users: Vec<user::Model> = User::find().all(db).await?;
-
-// Find with condition
-let users = User::find()
-    .filter(user::Column::Name.contains("John"))
-    .all(db).await?;
-```
-
-• Insert:
-```rust
-let user = user::ActiveModel {
-    name: Set("New User".to_owned()),
-    ..Default::default()
-};
-let res = user.insert(db).await?;
-```
-
-• Update:
-```rust
-let mut user: user::ActiveModel = User::find_by_id(1)
-    .one(db)
-    .await?
-    .unwrap()
-    .into();
-user.name = Set("New Name".to_owned());
-let user: user::Model = user.update(db).await?;
-```
-
-• Delete:
-```rust
-let user: user::Model = User::find_by_id(1).one(db).await?.unwrap();
-user.delete(db).await?;
-```
-
-3. Relationships:
-• One-to-One:
-```rust
-let (post, user) = Post::find_by_id(1)
-    .find_also_related(User)
-    .one(db)
-    .await?;
-```
-
-• One-to-Many:
-```rust
-let (user, posts) = User::find_by_id(1)
-    .find_with_related(Post)
-    .all(db)
-    .await?;
-```
-
-• Many-to-Many:
-```rust
-let (post, categories) = Post::find_by_id(1)
-    .find_with_related(Category)
-    .all(db)
-    .await?;
-```
-
-4. Pagination:
-```rust
-let paginator = User::find()
-  .paginate(db, 10);
-let num_pages = paginator.num_pages().await?;
-let users = paginator.fetch_page(0).await?;
-```
-
-5. SeaORM CLI Usage:
-• Installation:
-```bash
-cargo install sea-orm-cli
-```
-
-• Generate Entities:
-```bash
-sea-orm-cli generate entity \
-    -u postgres://user:pass@localhost/db \
-    -o src/entities
-```
-
-• Migration Commands:
-```bash
-# Initialize
-sea-orm-cli migrate init
-
-# Generate new
-sea-orm-cli migrate generate create_users_table
-
-# Run migrations
-sea-orm-cli migrate up
-
-# Rollback
-sea-orm-cli migrate down
-
-# Status check
-sea-orm-cli migrate status
-```
-
-6. Best Practices:
-• Use connection pools (e.g., sqlx::Pool)
-• Implement ActiveModelBehavior for custom logic
-• Use transactions for atomic operations
-• Leverage async/await for all database operations
-• Use Column enums for type-safe queries
-• Implement proper error handling with DbErr
-
-7. Query Building:
-```rust
-User::find()
-  .select_only()
-  .column(user::Column::Name)
-  .column_as(post::Column::Id.count(), "post_count")
-  .join(JoinType::LeftJoin, user::Relation::Posts.def())
-  .group_by(user::Column::Id)
-  .having(post::Column::Id.count().gt(5))
-  .order_by_asc(user::Column::Name)
-  .into_model::<UserWithPostCount>()
-  .all(db)
-  .await?
-```
-
-8. JSON Operations:
-```rust
-// Convert to JSON
-let json = user.into_json();
-
-// Query as JSON
-let users_json = User::find()
-  .into_json()
-  .all(db)
-  .await?;
-```
-
-9. Streaming:
-```rust
-let mut stream = User::find()
-  .stream(db)
-  .await?;
-
-while let Some(user) = stream.try_next().await? {
-  println!("User: {:?}", user);
-}
-```

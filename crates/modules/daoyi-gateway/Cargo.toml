@@ -1,6 +1,0 @@
-[package]
-name = "daoyi-gateway"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
